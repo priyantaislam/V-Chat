@@ -1,93 +1,36 @@
+from concurrent.futures import thread
 import socket
 import threading
-import tkinter
-import tkinter.scrolledtext
-from tkinter import simpledialog
-#import faulthandler; faulthandler.enable()
 
-HOST = '127.0.0.1'
-PORT = 9090
+username = input("Choose an username: ")
 
-class Client:
 
-        def __init__(self,host,port):
+client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+client.connect(('127.0.0.1', 6666))
 
-                self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                self.sock.connect((host,port))
+def receive():
+        while True:
+                try:
+                        message = client.recv(1024).decode('ascii')
+                        if message == "USRN":
+                                client.send(username.encode('ascii'))
+                        else:
+                                print(message)
 
-                msg = tkinter.Tk()
-                msg.withdraw()
+                except:
+                        print("Error")
+                        client.close()
+                        break
 
-                self.uname = simpledialog.askstring("Username", "Please choose a username", parent=msg)
-                
-                self.gui_done = False
-                self.running = True
+def write():
+        while True:
+                message = f'{username}: {input("")}'
+                client.send(message.encode('ascii'))
 
-                gui_thread = threading.Thread(target=self.gui_loop)
-                recv_thread = threading.Thread(target=self.receive)
 
-                recv_thread.start()
-                gui_thread.start()
-                
+recv_thread = threading.Thread(target=receive)
+recv_thread.start()
 
-        def gui_loop(self):
-                self.win = tkinter.Tk()
-                self.win.configure(bg="lightgray")
-                
-                self.chat_label = tkinter.Label(self.win, text="Chat:", bg="lightgray")
-                self.chat_label.config(font=("Arial",12))
-                self.chat_label.pack(padx=20,pady=5)
+write_thread = threading.Thread(target=write)
+write_thread.start()
 
-                self.text_area = tkinter.scrolledtext.ScrolledText(self.win)
-                self.text_area.pack(padx=20,pady=5)
-                self.text_area.config(state='disabled')
-
-                self.msg_label = tkinter.Label(self.win, text="Message:", bg="lightgray")
-                self.msg_label.config(font=("Arial",12))
-                self.msg_label.pack(padx=20,pady=5)
-
-                self.input_area = tkinter.Text(self.win, height=5)
-                self.input_area.pack(padx=20,pady=5)
-
-                self.send_button = tkinter.Button(self.win, text="Send", command = self.write)
-                self.send_button.config(font=("Arial",12))
-                self.send_button.pack(padx=20,pady=5)
-
-                self.gui_done = True
-
-                self.win.protocol("WM_DELETE_WINDOW", self.stop)
-
-                self.win.mainloop()
-        
-        def write(self):
-                message = f"{self.uname}: {self.input_area.get('1.0','end')}"
-                self.sock.send(message.encode('utf-8'))
-                self.input_area.delete('1.0','end')
-
-        def stop(self):
-                self.running = False
-                self.win.destroy()
-                self.sock.close()
-                exit(0)
-
-        def receive(self):
-                while self.running:
-                        try:
-                                message = self.sock.recv(1024).decode('utf-8')
-                                if message == "USRN":
-                                        print("reached here")
-                                        self.sock.send(self.uname.encode('utf-8'))
-                                else:
-                                        if self.gui_done:
-                                                self.text_area.config(state='normal')
-                                                self.text_area.insert('end', message)
-                                                self.text_area.yview('end')
-                                                self.text_area.config(state='disabled')
-                        except ConnectionAbortedError:
-                                break
-                        except:
-                                print("Error")
-                                self.sock.close()
-                                break        
-
-client = Client(HOST,PORT)
